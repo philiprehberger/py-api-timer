@@ -34,6 +34,16 @@ app = Flask(__name__)
 app.wsgi_app = WSGITimerMiddleware(app.wsgi_app, slow_threshold_ms=500)
 ```
 
+### Custom Logger
+
+```python
+import logging
+from philiprehberger_api_timer import ASGITimerMiddleware
+
+logger = logging.getLogger("my_api")
+app.add_middleware(ASGITimerMiddleware, logger=logger, include_header=False)
+```
+
 ### What It Does
 
 - Adds `Server-Timing` header to every response (e.g., `Server-Timing: total;dur=42.5`)
@@ -42,8 +52,10 @@ app.wsgi_app = WSGITimerMiddleware(app.wsgi_app, slow_threshold_ms=500)
 
 ## API
 
-- `ASGITimerMiddleware(app, slow_threshold_ms=500)` — ASGI middleware
-- `WSGITimerMiddleware(app, slow_threshold_ms=500)` — WSGI middleware
+| Function / Class | Description |
+|------------------|-------------|
+| `ASGITimerMiddleware(app, logger=None, slow_threshold_ms=500, include_header=True)` | ASGI middleware |
+| `WSGITimerMiddleware(app, logger=None, slow_threshold_ms=500, include_header=True)` | WSGI middleware |
 
 
 ## Development
