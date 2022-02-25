@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.11 (2026-03-22)
+
+- Add test suite for ASGI and WSGI middleware
+
 ## 0.1.10
 
 - Convert API section to table format
