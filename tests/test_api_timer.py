@@ -11,7 +11,7 @@ def test_wsgi_middleware_adds_header():
 
     captured_headers = {}
 
-    def mock_start_response(status, headers):
+    def mock_start_response(status, headers, exc_info=None):
         captured_headers.update(dict(headers))
 
     environ = {"REQUEST_METHOD": "GET", "PATH_INFO": "/test"}
@@ -30,7 +30,7 @@ def test_wsgi_timing_value_is_positive():
     middleware = WSGITimerMiddleware(app)
     captured = {}
 
-    def mock_start(status, headers):
+    def mock_start(status, headers, exc_info=None):
         captured.update(dict(headers))
 
     middleware({"REQUEST_METHOD": "GET", "PATH_INFO": "/"}, mock_start)
