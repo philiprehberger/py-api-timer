@@ -41,6 +41,14 @@ app.wsgi_app = WSGITimerMiddleware(app.wsgi_app, slow_threshold_ms=500)
 - `ASGITimerMiddleware(app, slow_threshold_ms=500)` — ASGI middleware
 - `WSGITimerMiddleware(app, slow_threshold_ms=500)` — WSGI middleware
 
+
+## Development
+
+```bash
+pip install -e .
+python -m pytest tests/ -v
+```
+
 ## License
 
 MIT
