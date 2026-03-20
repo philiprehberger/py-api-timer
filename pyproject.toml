@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "philiprehberger-api-timer"
-version = "0.1.4"
+version = "0.1.5"
 description = "Drop-in ASGI/WSGI middleware for endpoint timing"
 readme = "README.md"
 license = "MIT"
@@ -26,3 +26,9 @@ Issues = "https://github.com/philiprehberger/py-api-timer/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/philiprehberger_api_timer"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.mypy]
+strict = true
