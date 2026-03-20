@@ -1,5 +1,9 @@
 # philiprehberger-api-timer
 
+[![Tests](https://github.com/philiprehberger/py-api-timer/actions/workflows/publish.yml/badge.svg)](https://github.com/philiprehberger/py-api-timer/actions/workflows/publish.yml)
+[![PyPI version](https://img.shields.io/pypi/v/philiprehberger-api-timer.svg)](https://pypi.org/project/philiprehberger-api-timer/)
+[![License](https://img.shields.io/github/license/philiprehberger/py-api-timer)](LICENSE)
+
 Drop-in ASGI/WSGI middleware for endpoint timing with Server-Timing headers.
 
 ## Installation
@@ -30,16 +34,12 @@ app = Flask(__name__)
 app.wsgi_app = WSGITimerMiddleware(app.wsgi_app, slow_threshold_ms=500)
 ```
 
-### What It Does
-
-- Adds `Server-Timing` header to every response (e.g., `Server-Timing: total;dur=42.5`)
-- Logs a WARNING for requests exceeding the slow threshold
-- Zero configuration required — just add the middleware
-
 ## API
 
-- `ASGITimerMiddleware(app, slow_threshold_ms=500)` — ASGI middleware
-- `WSGITimerMiddleware(app, slow_threshold_ms=500)` — WSGI middleware
+| Function / Class | Description |
+|------------------|-------------|
+| `ASGITimerMiddleware(app, slow_threshold_ms=500)` | ASGI middleware |
+| `WSGITimerMiddleware(app, slow_threshold_ms=500)` | WSGI middleware |
 
 
 ## Development
