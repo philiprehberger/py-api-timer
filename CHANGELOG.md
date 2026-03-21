@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.10
+
+- Convert API section to table format
+- Document logger and include_header parameters
+- Add custom logger usage example to README
+
 ## 0.1.9
 
 - Add badges, Changelog URL, pytest/mypy config, Python version classifiers
