@@ -1,5 +1,9 @@
 # philiprehberger-api-timer
 
+[![Tests](https://github.com/philiprehberger/py-api-timer/actions/workflows/publish.yml/badge.svg)](https://github.com/philiprehberger/py-api-timer/actions/workflows/publish.yml)
+[![PyPI version](https://img.shields.io/pypi/v/philiprehberger-api-timer.svg)](https://pypi.org/project/philiprehberger-api-timer/)
+[![License](https://img.shields.io/github/license/philiprehberger/py-api-timer)](LICENSE)
+
 Drop-in ASGI/WSGI middleware for endpoint timing with Server-Timing headers.
 
 ## Installation

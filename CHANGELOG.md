@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.9
+
+- Add badges, Changelog URL, pytest/mypy config, Python version classifiers
+
 ## 0.1.8
 
 - Trim keywords to match pyproject template guide
