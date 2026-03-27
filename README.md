@@ -3,6 +3,7 @@
 [![Tests](https://github.com/philiprehberger/py-api-timer/actions/workflows/publish.yml/badge.svg)](https://github.com/philiprehberger/py-api-timer/actions/workflows/publish.yml)
 [![PyPI version](https://img.shields.io/pypi/v/philiprehberger-api-timer.svg)](https://pypi.org/project/philiprehberger-api-timer/)
 [![License](https://img.shields.io/github/license/philiprehberger/py-api-timer)](LICENSE)
+[![Sponsor](https://img.shields.io/badge/sponsor-GitHub%20Sponsors-ec6cb9)](https://github.com/sponsors/philiprehberger)
 
 Drop-in ASGI/WSGI middleware for endpoint timing with Server-Timing headers.
 
