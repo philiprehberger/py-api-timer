@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.0 (2026-04-29)
+
+- Add `exclude_paths` parameter to skip timing for specific path prefixes (e.g. `/health`, `/metrics`)
+- Add `header_name` parameter for customizing the timing response header (defaults to `Server-Timing`)
+- Extend test suite to cover both new options on ASGI and WSGI middleware
+
 ## 0.1.12 (2026-03-31)
 
 - Standardize README to 3-badge format with emoji Support section

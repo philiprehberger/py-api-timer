@@ -122,3 +122,70 @@ class TestASGITimerMiddleware:
         start_msg = sent_messages[0]
         header_names = [h[0] for h in start_msg["headers"]]
         assert b"server-timing" in header_names
+
+    def test_custom_header_name_asgi(self) -> None:
+        async def app(scope: dict[str, Any], receive: Any, send: Any) -> None:
+            await send({"type": "http.response.start", "status": 200, "headers": []})
+            await send({"type": "http.response.body", "body": b"ok"})
+
+        mw = ASGITimerMiddleware(app, header_name="X-Request-Time")
+        sent_messages: list[dict[str, Any]] = []
+
+        async def send(msg: dict[str, Any]) -> None:
+            sent_messages.append(msg)
+
+        asyncio.run(mw({"type": "http", "method": "GET", "path": "/test"}, None, send))
+        header_names = [h[0] for h in sent_messages[0]["headers"]]
+        assert b"x-request-time" in header_names
+        assert b"server-timing" not in header_names
+
+    def test_excluded_path_skips_timing_asgi(self, caplog: Any) -> None:
+        async def app(scope: dict[str, Any], receive: Any, send: Any) -> None:
+            await send({"type": "http.response.start", "status": 200, "headers": []})
+
+        logger = logging.getLogger("test_api_timer_excl_asgi")
+        mw = ASGITimerMiddleware(app, logger=logger, exclude_paths=["/health"])
+        sent_messages: list[dict[str, Any]] = []
+
+        async def send(msg: dict[str, Any]) -> None:
+            sent_messages.append(msg)
+
+        with caplog.at_level(logging.INFO, logger="test_api_timer_excl_asgi"):
+            asyncio.run(mw({"type": "http", "method": "GET", "path": "/health"}, None, send))
+
+        header_names = [h[0] for h in sent_messages[0]["headers"]]
+        assert b"server-timing" not in header_names
+        assert not any("/health" in r.message for r in caplog.records)
+
+
+class TestExclusionsWSGI:
+    def test_excluded_path_skips_timing(self) -> None:
+        def app(environ: dict[str, Any], start_response: Any) -> list[bytes]:
+            start_response("200 OK", [("Content-Type", "text/plain")])
+            return [b"ok"]
+
+        mw = WSGITimerMiddleware(app, exclude_paths=["/metrics"])
+        captured_headers: list[list[tuple[str, str]]] = []
+
+        def start_response(status: str, headers: list[tuple[str, str]], exc_info: Any = None) -> None:
+            captured_headers.append(headers)
+
+        mw({"REQUEST_METHOD": "GET", "PATH_INFO": "/metrics"}, start_response)
+        header_names = [h[0] for h in captured_headers[0]]
+        assert "Server-Timing" not in header_names
+
+    def test_custom_header_name_wsgi(self) -> None:
+        def app(environ: dict[str, Any], start_response: Any) -> list[bytes]:
+            start_response("200 OK", [])
+            return [b"ok"]
+
+        mw = WSGITimerMiddleware(app, header_name="X-Request-Time")
+        captured_headers: list[list[tuple[str, str]]] = []
+
+        def start_response(status: str, headers: list[tuple[str, str]], exc_info: Any = None) -> None:
+            captured_headers.append(headers)
+
+        mw({"REQUEST_METHOD": "GET", "PATH_INFO": "/test"}, start_response)
+        header_names = [h[0] for h in captured_headers[0]]
+        assert "X-Request-Time" in header_names
+        assert "Server-Timing" not in header_names

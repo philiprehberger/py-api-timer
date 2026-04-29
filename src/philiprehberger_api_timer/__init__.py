@@ -4,13 +4,17 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Callable
+from typing import Any, Callable, Iterable
 
 
 __all__ = [
     "ASGITimerMiddleware",
     "WSGITimerMiddleware",
 ]
+
+
+def _path_excluded(path: str, prefixes: tuple[str, ...]) -> bool:
+    return any(path == p or path.startswith(p) for p in prefixes)
 
 
 class ASGITimerMiddleware:
@@ -20,7 +24,10 @@ class ASGITimerMiddleware:
         app: The ASGI application.
         logger: Logger instance. Defaults to ``logging.getLogger("api_timer")``.
         slow_threshold_ms: Requests slower than this are logged at WARNING level.
-        include_header: Whether to add a ``Server-Timing`` response header.
+        include_header: Whether to add a timing response header.
+        header_name: Name of the timing header. Defaults to ``"Server-Timing"``.
+        exclude_paths: Path prefixes that should bypass timing entirely
+            (e.g. ``["/health", "/metrics"]``).
     """
 
     def __init__(
@@ -29,14 +36,24 @@ class ASGITimerMiddleware:
         logger: logging.Logger | None = None,
         slow_threshold_ms: float = 500,
         include_header: bool = True,
+        header_name: str = "Server-Timing",
+        exclude_paths: Iterable[str] | None = None,
     ) -> None:
         self.app = app
         self.logger = logger or logging.getLogger("api_timer")
         self.slow_threshold_ms = slow_threshold_ms
         self.include_header = include_header
+        self.header_name = header_name
+        self._header_bytes = header_name.lower().encode()
+        self.exclude_paths: tuple[str, ...] = tuple(exclude_paths or ())
 
     async def __call__(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
         if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        path = scope.get("path", "")
+        if self.exclude_paths and _path_excluded(path, self.exclude_paths):
             await self.app(scope, receive, send)
             return
 
@@ -51,7 +68,7 @@ class ASGITimerMiddleware:
                     elapsed_ms = (time.perf_counter_ns() - start) / 1_000_000
                     headers = list(message.get("headers", []))
                     headers.append(
-                        (b"server-timing", f"total;dur={elapsed_ms:.1f}".encode())
+                        (self._header_bytes, f"total;dur={elapsed_ms:.1f}".encode())
                     )
                     message = {**message, "headers": headers}
             await send(message)
@@ -61,8 +78,7 @@ class ASGITimerMiddleware:
         finally:
             elapsed_ms = (time.perf_counter_ns() - start) / 1_000_000
             method = scope.get("method", "?")
-            path = scope.get("path", "?")
-            msg = f"{method} {path} {status_code} {elapsed_ms:.0f}ms"
+            msg = f"{method} {path or '?'} {status_code} {elapsed_ms:.0f}ms"
 
             if elapsed_ms >= self.slow_threshold_ms:
                 self.logger.warning(msg)
@@ -77,7 +93,9 @@ class WSGITimerMiddleware:
         app: The WSGI application.
         logger: Logger instance. Defaults to ``logging.getLogger("api_timer")``.
         slow_threshold_ms: Requests slower than this are logged at WARNING level.
-        include_header: Whether to add a ``Server-Timing`` response header.
+        include_header: Whether to add a timing response header.
+        header_name: Name of the timing header. Defaults to ``"Server-Timing"``.
+        exclude_paths: Path prefixes that should bypass timing entirely.
     """
 
     def __init__(
@@ -86,15 +104,23 @@ class WSGITimerMiddleware:
         logger: logging.Logger | None = None,
         slow_threshold_ms: float = 500,
         include_header: bool = True,
+        header_name: str = "Server-Timing",
+        exclude_paths: Iterable[str] | None = None,
     ) -> None:
         self.app = app
         self.logger = logger or logging.getLogger("api_timer")
         self.slow_threshold_ms = slow_threshold_ms
         self.include_header = include_header
+        self.header_name = header_name
+        self.exclude_paths: tuple[str, ...] = tuple(exclude_paths or ())
 
     def __call__(
         self, environ: dict[str, Any], start_response: Callable[..., Any]
     ) -> Any:
+        path = environ.get("PATH_INFO", "")
+        if self.exclude_paths and _path_excluded(path, self.exclude_paths):
+            return self.app(environ, start_response)
+
         start = time.perf_counter_ns()
         status_holder: list[str] = []
 
@@ -105,7 +131,7 @@ class WSGITimerMiddleware:
             elapsed_ms = (time.perf_counter_ns() - start) / 1_000_000
             if self.include_header:
                 headers = list(headers)
-                headers.append(("Server-Timing", f"total;dur={elapsed_ms:.1f}"))
+                headers.append((self.header_name, f"total;dur={elapsed_ms:.1f}"))
             return start_response(status, headers, exc_info)
 
         try:
@@ -113,9 +139,8 @@ class WSGITimerMiddleware:
         finally:
             elapsed_ms = (time.perf_counter_ns() - start) / 1_000_000
             method = environ.get("REQUEST_METHOD", "?")
-            path = environ.get("PATH_INFO", "?")
             status = status_holder[0].split(" ", 1)[0] if status_holder else "?"
-            msg = f"{method} {path} {status} {elapsed_ms:.0f}ms"
+            msg = f"{method} {path or '?'} {status} {elapsed_ms:.0f}ms"
 
             if elapsed_ms >= self.slow_threshold_ms:
                 self.logger.warning(msg)

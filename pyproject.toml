@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "philiprehberger-api-timer"
-version = "0.1.12"
+version = "0.2.0"
 description = "Drop-in ASGI/WSGI middleware for endpoint timing"
 readme = "README.md"
 license = "MIT"

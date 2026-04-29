@@ -44,6 +44,25 @@ logger = logging.getLogger("my_api")
 app.add_middleware(ASGITimerMiddleware, logger=logger, include_header=False)
 ```
 
+### Exclude Paths
+
+```python
+from philiprehberger_api_timer import ASGITimerMiddleware
+
+app.add_middleware(
+    ASGITimerMiddleware,
+    exclude_paths=["/health", "/metrics"],  # bypass timing entirely
+)
+```
+
+### Custom Header Name
+
+```python
+from philiprehberger_api_timer import WSGITimerMiddleware
+
+app.wsgi_app = WSGITimerMiddleware(app.wsgi_app, header_name="X-Request-Time")
+```
+
 ### What It Does
 
 - Adds `Server-Timing` header to every response (e.g., `Server-Timing: total;dur=42.5`)
@@ -54,8 +73,8 @@ app.add_middleware(ASGITimerMiddleware, logger=logger, include_header=False)
 
 | Function / Class | Description |
 |------------------|-------------|
-| `ASGITimerMiddleware(app, logger=None, slow_threshold_ms=500, include_header=True)` | ASGI middleware |
-| `WSGITimerMiddleware(app, logger=None, slow_threshold_ms=500, include_header=True)` | WSGI middleware |
+| `ASGITimerMiddleware(app, logger=None, slow_threshold_ms=500, include_header=True, header_name="Server-Timing", exclude_paths=None)` | ASGI middleware |
+| `WSGITimerMiddleware(app, logger=None, slow_threshold_ms=500, include_header=True, header_name="Server-Timing", exclude_paths=None)` | WSGI middleware |
 
 ## Development
 
