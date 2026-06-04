@@ -4,6 +4,8 @@
 [![PyPI version](https://img.shields.io/pypi/v/philiprehberger-api-timer.svg)](https://pypi.org/project/philiprehberger-api-timer/)
 [![Last updated](https://img.shields.io/github/last-commit/philiprehberger/py-api-timer)](https://github.com/philiprehberger/py-api-timer/commits/main)
 
+![philiprehberger-api-timer](https://raw.githubusercontent.com/philiprehberger/py-api-timer/main/package-card.webp)
+
 Drop-in ASGI/WSGI middleware for endpoint timing with Server-Timing headers.
 
 ## Installation
@@ -63,6 +65,21 @@ from philiprehberger_api_timer import WSGITimerMiddleware
 app.wsgi_app = WSGITimerMiddleware(app.wsgi_app, header_name="X-Request-Time")
 ```
 
+### Export to Prometheus / statsd via `metric_callback`
+
+```python
+from philiprehberger_api_timer import ASGITimerMiddleware
+
+def record(method: str, path: str, status: int, elapsed_ms: float) -> None:
+    histogram.labels(method=method, path=path, status=status).observe(elapsed_ms)
+
+app.add_middleware(ASGITimerMiddleware, metric_callback=record)
+```
+
+The callback fires once per non-excluded request after the response has been
+sent. Exceptions raised inside the callback are caught and logged so they
+cannot break the response.
+
 ### What It Does
 
 - Adds `Server-Timing` header to every response (e.g., `Server-Timing: total;dur=42.5`)
@@ -73,8 +90,9 @@ app.wsgi_app = WSGITimerMiddleware(app.wsgi_app, header_name="X-Request-Time")
 
 | Function / Class | Description |
 |------------------|-------------|
-| `ASGITimerMiddleware(app, logger=None, slow_threshold_ms=500, include_header=True, header_name="Server-Timing", exclude_paths=None)` | ASGI middleware |
-| `WSGITimerMiddleware(app, logger=None, slow_threshold_ms=500, include_header=True, header_name="Server-Timing", exclude_paths=None)` | WSGI middleware |
+| `ASGITimerMiddleware(app, logger=None, slow_threshold_ms=500, include_header=True, header_name="Server-Timing", exclude_paths=None, metric_callback=None)` | ASGI middleware |
+| `WSGITimerMiddleware(app, logger=None, slow_threshold_ms=500, include_header=True, header_name="Server-Timing", exclude_paths=None, metric_callback=None)` | WSGI middleware |
+| `MetricCallback` | Type alias for `(method, path, status, elapsed_ms) -> None` |
 
 ## Development
 

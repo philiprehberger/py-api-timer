@@ -189,3 +189,69 @@ class TestExclusionsWSGI:
         header_names = [h[0] for h in captured_headers[0]]
         assert "X-Request-Time" in header_names
         assert "Server-Timing" not in header_names
+
+
+class TestMetricCallback:
+    def test_wsgi_callback_receives_request_metadata(self) -> None:
+        def app(environ: dict[str, Any], start_response: Any) -> list[bytes]:
+            start_response("201 Created", [])
+            return [b"ok"]
+
+        captured: list[tuple[str, str, int, float]] = []
+
+        def cb(method: str, path: str, status: int, elapsed_ms: float) -> None:
+            captured.append((method, path, status, elapsed_ms))
+
+        mw = WSGITimerMiddleware(app, metric_callback=cb)
+        mw({"REQUEST_METHOD": "POST", "PATH_INFO": "/items"}, lambda *a, **k: None)
+
+        assert len(captured) == 1
+        method, path, status, elapsed_ms = captured[0]
+        assert method == "POST"
+        assert path == "/items"
+        assert status == 201
+        assert elapsed_ms >= 0.0
+
+    def test_wsgi_callback_exception_is_swallowed(self) -> None:
+        def app(environ: dict[str, Any], start_response: Any) -> list[bytes]:
+            start_response("200 OK", [])
+            return [b"ok"]
+
+        def cb(method: str, path: str, status: int, elapsed_ms: float) -> None:
+            raise RuntimeError("boom")
+
+        mw = WSGITimerMiddleware(app, metric_callback=cb)
+        # Must not raise
+        result = mw({"REQUEST_METHOD": "GET", "PATH_INFO": "/x"}, lambda *a, **k: None)
+        assert result == [b"ok"]
+
+    def test_asgi_callback_receives_request_metadata(self) -> None:
+        captured: list[tuple[str, str, int, float]] = []
+
+        async def app(scope: dict[str, Any], receive: Any, send: Any) -> None:
+            await send({"type": "http.response.start", "status": 200, "headers": []})
+            await send({"type": "http.response.body", "body": b"ok"})
+
+        def cb(method: str, path: str, status: int, elapsed_ms: float) -> None:
+            captured.append((method, path, status, elapsed_ms))
+
+        async def run() -> None:
+            mw = ASGITimerMiddleware(app, metric_callback=cb)
+            scope = {"type": "http", "method": "GET", "path": "/users"}
+            sent: list[dict[str, Any]] = []
+
+            async def receive() -> dict[str, Any]:
+                return {"type": "http.request"}
+
+            async def send(message: dict[str, Any]) -> None:
+                sent.append(message)
+
+            await mw(scope, receive, send)
+
+        asyncio.run(run())
+        assert len(captured) == 1
+        method, path, status, elapsed_ms = captured[0]
+        assert method == "GET"
+        assert path == "/users"
+        assert status == 200
+        assert elapsed_ms >= 0.0

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.0 (2026-06-04)
+
+- Add `metric_callback` parameter on both `ASGITimerMiddleware` and `WSGITimerMiddleware` — invoked with `(method, path, status, elapsed_ms)` after each non-excluded request so metrics can be exported to Prometheus / statsd / OpenTelemetry without subclassing
+- Export `MetricCallback` type alias for the callback signature
+- Sync `pyproject.toml` `description` with the README one-liner
+- Add `package-card.webp` to README
+
 ## 0.2.0 (2026-04-29)
 
 - Add `exclude_paths` parameter to skip timing for specific path prefixes (e.g. `/health`, `/metrics`)

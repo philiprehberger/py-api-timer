@@ -1,4 +1,4 @@
-"""Drop-in ASGI/WSGI middleware for endpoint timing."""
+"""Drop-in ASGI/WSGI middleware for endpoint timing with Server-Timing headers."""
 
 from __future__ import annotations
 
@@ -10,7 +10,17 @@ from typing import Any, Callable, Iterable
 __all__ = [
     "ASGITimerMiddleware",
     "WSGITimerMiddleware",
+    "MetricCallback",
 ]
+
+
+MetricCallback = Callable[[str, str, int, float], None]
+"""Signature: ``(method, path, status, elapsed_ms) -> None``.
+
+Invoked once per non-excluded request, after the response has been emitted.
+Useful for plugging in Prometheus / statsd / OpenTelemetry exporters
+without subclassing the middleware.
+"""
 
 
 def _path_excluded(path: str, prefixes: tuple[str, ...]) -> bool:
@@ -28,6 +38,10 @@ class ASGITimerMiddleware:
         header_name: Name of the timing header. Defaults to ``"Server-Timing"``.
         exclude_paths: Path prefixes that should bypass timing entirely
             (e.g. ``["/health", "/metrics"]``).
+        metric_callback: Optional callable invoked as
+            ``metric_callback(method, path, status, elapsed_ms)`` after each
+            non-excluded request. Exceptions raised by the callback are
+            caught and logged so they cannot break the response.
     """
 
     def __init__(
@@ -38,6 +52,7 @@ class ASGITimerMiddleware:
         include_header: bool = True,
         header_name: str = "Server-Timing",
         exclude_paths: Iterable[str] | None = None,
+        metric_callback: MetricCallback | None = None,
     ) -> None:
         self.app = app
         self.logger = logger or logging.getLogger("api_timer")
@@ -46,6 +61,7 @@ class ASGITimerMiddleware:
         self.header_name = header_name
         self._header_bytes = header_name.lower().encode()
         self.exclude_paths: tuple[str, ...] = tuple(exclude_paths or ())
+        self.metric_callback = metric_callback
 
     async def __call__(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
         if scope["type"] != "http":
@@ -85,6 +101,12 @@ class ASGITimerMiddleware:
             else:
                 self.logger.info(msg)
 
+            if self.metric_callback is not None:
+                try:
+                    self.metric_callback(method, path, status_code, elapsed_ms)
+                except Exception:
+                    self.logger.exception("api_timer metric_callback raised")
+
 
 class WSGITimerMiddleware:
     """WSGI middleware that logs request duration for every endpoint.
@@ -96,6 +118,9 @@ class WSGITimerMiddleware:
         include_header: Whether to add a timing response header.
         header_name: Name of the timing header. Defaults to ``"Server-Timing"``.
         exclude_paths: Path prefixes that should bypass timing entirely.
+        metric_callback: Optional callable invoked as
+            ``metric_callback(method, path, status, elapsed_ms)`` after each
+            non-excluded request.
     """
 
     def __init__(
@@ -106,6 +131,7 @@ class WSGITimerMiddleware:
         include_header: bool = True,
         header_name: str = "Server-Timing",
         exclude_paths: Iterable[str] | None = None,
+        metric_callback: MetricCallback | None = None,
     ) -> None:
         self.app = app
         self.logger = logger or logging.getLogger("api_timer")
@@ -113,6 +139,7 @@ class WSGITimerMiddleware:
         self.include_header = include_header
         self.header_name = header_name
         self.exclude_paths: tuple[str, ...] = tuple(exclude_paths or ())
+        self.metric_callback = metric_callback
 
     def __call__(
         self, environ: dict[str, Any], start_response: Callable[..., Any]
@@ -139,10 +166,19 @@ class WSGITimerMiddleware:
         finally:
             elapsed_ms = (time.perf_counter_ns() - start) / 1_000_000
             method = environ.get("REQUEST_METHOD", "?")
-            status = status_holder[0].split(" ", 1)[0] if status_holder else "?"
-            msg = f"{method} {path or '?'} {status} {elapsed_ms:.0f}ms"
+            status_str = (
+                status_holder[0].split(" ", 1)[0] if status_holder else "?"
+            )
+            msg = f"{method} {path or '?'} {status_str} {elapsed_ms:.0f}ms"
 
             if elapsed_ms >= self.slow_threshold_ms:
                 self.logger.warning(msg)
             else:
                 self.logger.info(msg)
+
+            if self.metric_callback is not None:
+                try:
+                    status_int = int(status_str) if status_str.isdigit() else 0
+                    self.metric_callback(method, path, status_int, elapsed_ms)
+                except Exception:
+                    self.logger.exception("api_timer metric_callback raised")
